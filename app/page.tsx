@@ -1,23 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { 
   LayoutDashboard, 
   UserCheck, 
   CircleDollarSign,
-  Users,
   Moon,
   Sun
 } from 'lucide-react';
-import { CheckInPanel } from '@/components/check-in-panel';
+const CheckInPanel = dynamic(() => import('@/components/check-in-panel').then(m => m.CheckInPanel), { ssr: false });
 import { DashboardStats } from '@/components/dashboard-stats';
 import { PayrollOverview } from '@/components/payroll-overview';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'checkin' | 'dashboard' | 'payroll'>('checkin');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [time, setTime] = useState(new Date());
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -25,74 +28,90 @@ export default function Home() {
     }
   }, [isDarkMode]);
 
-  return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-200 transition-colors">
-      <aside className="gradient-sidebar flex w-64 flex-col p-6 text-white shrink-0">
-        <div className="mb-10 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-xl font-bold">M</div>
-          <h1 className="text-xl font-bold tracking-tight">MIS CPP</h1>
-        </div>
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-        <nav className="flex flex-col gap-2 flex-1">
-          <button 
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-3 rounded-lg p-3 transition-colors ${activeTab === 'dashboard' ? 'bg-white/10' : 'opacity-70 hover:bg-white/5'}`}
-          >
-            <LayoutDashboard className="h-5 w-5 opacity-80" /> ផ្ទាំងគ្រប់គ្រង
-          </button>
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-200 transition-colors flex flex-col">
+      {/* Gradient Header with Logo & Real-time Clock */}
+      <header className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-xl font-bold backdrop-blur-sm">M</div>
+            <h1 className="text-xl font-bold tracking-tight">MIS CPP</h1>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="hidden sm:block text-right">
+              <p className="text-sm text-indigo-100 font-medium">
+                {mounted ? time.toLocaleDateString('km-KH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '...'}
+              </p>
+              <p className="text-lg font-bold tracking-wider">
+                {mounted ? time.toLocaleTimeString('km-KH') : '...'}
+              </p>
+            </div>
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              title={isDarkMode ? 'Light Mood' : 'Duck Mood'}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Greeting Hero */}
+        <section className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-2">
+            <div className="h-16 w-16 overflow-hidden rounded-full border-4 border-indigo-100 dark:border-indigo-900 shadow-md flex-shrink-0">
+              <div className="flex h-full w-full items-center justify-center bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 text-2xl font-bold">
+                A
+              </div>
+            </div>
+            <div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
+                សួស្តី, Admin (អ្នកគ្រប់គ្រង) 👋
+              </h2>
+              <p className="mt-1 text-slate-600 dark:text-slate-400 text-lg">
+                សូមស្វាគមន៍មកកាន់ប្រព័ន្ធគ្រប់គ្រងវត្តមាន និងប្រាក់ខែ
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-slate-200 dark:border-slate-800 mb-8 overflow-x-auto hide-scrollbar">
           <button 
             onClick={() => setActiveTab('checkin')}
-            className={`flex items-center gap-3 rounded-lg p-3 transition-colors ${activeTab === 'checkin' ? 'bg-white/10' : 'opacity-70 hover:bg-white/5'}`}
+            className={`flex items-center gap-2 py-4 px-6 font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'checkin' ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
           >
-            <UserCheck className="h-5 w-5 opacity-80" /> កត់ត្រាវត្តមាន
+            <UserCheck className="w-5 h-5" /> កត់ត្រាវត្តមាន
+          </button>
+          <button 
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center gap-2 py-4 px-6 font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" /> ផ្ទាំងគ្រប់គ្រង
           </button>
           <button 
             onClick={() => setActiveTab('payroll')}
-            className={`flex items-center gap-3 rounded-lg p-3 transition-colors ${activeTab === 'payroll' ? 'bg-white/10' : 'opacity-70 hover:bg-white/5'}`}
+            className={`flex items-center gap-2 py-4 px-6 font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'payroll' ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
           >
-            <CircleDollarSign className="h-5 w-5 opacity-80" /> ប្រាក់បៀវត្សរ៍
+            <CircleDollarSign className="w-5 h-5" /> ប្រាក់បៀវត្សរ៍
           </button>
-
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="flex items-center gap-3 rounded-lg p-3 mt-auto opacity-70 hover:bg-white/5 transition-colors"
-          >
-            {isDarkMode ? <Sun className="h-5 w-5 opacity-80" /> : <Moon className="h-5 w-5 opacity-80" />} 
-            {isDarkMode ? 'Light Mood' : 'Duck Mood'}
-          </button>
-        </nav>
-
-        <div className="mt-4 rounded-xl bg-white/10 p-4">
-          <p className="text-xs opacity-60">ស្ថាប័នបច្ចុប្បន្ន</p>
-          <select className="bg-transparent text-white font-medium outline-none appearance-none cursor-pointer w-full mt-1">
-            <option value="school_a" className="text-slate-900">សាលារៀន A</option>
-            <option value="company_b" className="text-slate-900">ក្រុមហ៊ុន B</option>
-          </select>
         </div>
-      </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors">
-        <header className="flex h-20 shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-8 transition-colors">
-          <div>
-            <h2 className="text-2xl font-bold text-indigo-950 dark:text-indigo-400">
-              {activeTab === 'checkin' && 'កត់ត្រាវត្តមាន'}
-              {activeTab === 'dashboard' && 'ទិដ្ឋភាពទូទៅ'}
-              {activeTab === 'payroll' && 'គ្រប់គ្រងប្រាក់ខែ'}
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {activeTab === 'checkin' && 'អនុញ្ញាតឱ្យបុគ្គលិកកត់ត្រាវត្តមាន'}
-              {activeTab === 'dashboard' && `របាយការណ៍វត្តមានប្រចាំថ្ងៃ - ${new Date().toLocaleDateString('km-KH', { dateStyle: 'full' })}`}
-              {activeTab === 'payroll' && 'សង្ខេបប្រាក់បៀវត្សរ៍ និងការកាត់កង'}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-indigo-100 dark:border-indigo-900">
-              <div className="flex h-full w-full items-center justify-center bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold">A</div>
-            </div>
-          </div>
-        </header>
-        
-        <div className="flex-1 overflow-auto p-8">
+        {/* Tab Content */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 sm:p-8 transition-colors">
           {activeTab === 'checkin' && <CheckInPanel />}
           {activeTab === 'dashboard' && <DashboardStats />}
           {activeTab === 'payroll' && <PayrollOverview />}

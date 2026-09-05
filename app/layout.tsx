@@ -9,7 +9,7 @@ const kantumruyPro = Kantumruy_Pro({
 });
 
 export const metadata: Metadata = {
-  title: 'MIS CPP - ប្រព័ន្ធគ្រប់គ្រងវត្តមាន និងប្រាក់ខែ',
+  title: 'MIS CPP',
   description: 'Multi-tenant employee attendance and HR/payroll system with AI face match, GPS, QR, and NFC.',
 };
 

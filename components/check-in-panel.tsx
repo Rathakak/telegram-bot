@@ -1,37 +1,112 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { MapPin, ScanFace, QrCode, CreditCard, CheckCircle2, AlertCircle, Loader2, UserCheck } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { MapPin, ScanFace, QrCode, CreditCard, CheckCircle2, AlertCircle, Loader2, UserCheck, UserPlus } from 'lucide-react';
 import Webcam from 'react-webcam';
-import { supabase } from '@/lib/supabase';
+import * as faceapi from '@vladmandic/face-api';
+import { FaceRegistrationModal } from './face-registration-modal';
 
 type CheckInMethod = 'gps' | 'face' | 'qr' | 'nfc';
 
 export function CheckInPanel() {
   const [activeMethod, setActiveMethod] = useState<CheckInMethod | null>(null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'loading_models' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
-
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
+  
   // GPS State
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
+  
+  // Face State
+  const webcamRef = useRef<Webcam>(null);
+
+  useEffect(() => {
+    if (activeMethod === 'face') {
+      const loadModels = async () => {
+        try {
+          setStatus('loading_models');
+          setMessage('កំពុងផ្ទុក AI Models...');
+          await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+            faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+          ]);
+          setStatus('idle');
+          setMessage('');
+        } catch (err) {
+          console.error(err);
+          setStatus('error');
+          setMessage('មិនអាចផ្ទុកម៉ូដែល AI បានទេ។');
+        }
+      };
+      loadModels();
+    }
+  }, [activeMethod]);
+
+  const handleFaceCheckIn = useCallback(async () => {
+    if (!webcamRef.current) return;
+    
+    const imageSrc = webcamRef.current.getScreenshot();
+    if (!imageSrc) return;
+
+    setStatus('loading');
+    setMessage('កំពុងផ្ទៀងផ្ទាត់ផ្ទៃមុខ...');
+
+    try {
+      const img = new Image();
+      img.src = imageSrc;
+      await new Promise((resolve) => { img.onload = resolve; });
+
+      const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+
+      if (!detection) {
+        setStatus('error');
+        setMessage('រកមិនឃើញផ្ទៃមុខ។ សូមសាកល្បងម្ដងទៀត។');
+        return;
+      }
+
+      const descriptorArray = Array.from(detection.descriptor);
+      
+      // Get mock local storage enrollments
+      const enrollments = JSON.parse(localStorage.getItem('face_enrollments') || '[]');
+
+      // Call API
+      const response = await fetch('/api/face-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ descriptor: descriptorArray, enrollments })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setStatus('success');
+        setMessage(`ជោគជ័យ! សួស្តី ${data.match.employeeName}`);
+        setTimeout(() => {
+          setStatus('idle');
+          setActiveMethod(null);
+        }, 3000);
+      } else {
+        setStatus('error');
+        setMessage('ផ្ទៃមុខមិនត្រូវបានស្គាល់ ឬអត្រាប្រហាក់ប្រហែលទាបពេក។');
+      }
+
+    } catch (error) {
+      console.error(error);
+      setStatus('error');
+      setMessage('មានបញ្ហាបច្ចេកទេសក្នុងការផ្ទៀងផ្ទាត់។');
+    }
+  }, []);
 
   const handleCheckIn = async (method: string, data?: any) => {
+    if (method === 'face') {
+      return handleFaceCheckIn();
+    }
+    
     setStatus('loading');
     setMessage('កំពុងផ្ទៀងផ្ទាត់...');
     
     try {
-      // Mock API call to Supabase
-      // In a real scenario, we would insert into attendance_logs table
-      /*
-      const { error } = await supabase.from('attendance_logs').insert({
-        user_id: 'mock-user-id', // From auth
-        institution_id: 'mock-inst-id',
-        check_in_time: new Date().toISOString(),
-        check_in_method: method,
-        status: 'present',
-      });
-      */
-      
       setTimeout(() => {
         setStatus('success');
         setMessage('កត់ត្រាចូលដោយជោគជ័យ! (Checked In)');
@@ -40,7 +115,6 @@ export function CheckInPanel() {
           setActiveMethod(null);
         }, 3000);
       }, 1500);
-
     } catch (error) {
       setStatus('error');
       setMessage('មានបញ្ហាក្នុងការកត់ត្រា។ (Error)');
@@ -68,14 +142,12 @@ export function CheckInPanel() {
 
   const startFaceMatch = () => {
     setActiveMethod('face');
-    setStatus('idle');
-    // We render the webcam, user will click "Scan"
+    // Models loaded via useEffect
   };
 
   const startQR = () => {
     setActiveMethod('qr');
     setStatus('idle');
-    // Mock QR Scanner
   };
 
   const startNFC = async () => {
@@ -93,7 +165,6 @@ export function CheckInPanel() {
           handleCheckIn('nfc', { serialNumber });
         };
       } else {
-        // Fallback for unsupported browsers
         setTimeout(() => {
           handleCheckIn('nfc', { mockId: '1234-nfc-mock' });
         }, 2000);
@@ -106,9 +177,23 @@ export function CheckInPanel() {
 
   return (
     <div className="flex flex-col md:flex-row gap-8">
+      <FaceRegistrationModal 
+        isOpen={isRegistrationModalOpen} 
+        onClose={() => setIsRegistrationModalOpen(false)} 
+      />
+      
       {/* Methods Sidebar */}
       <div className="w-full md:w-1/3 flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">ជ្រើសរើសវិធីសាស្ត្រ</h2>
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">ជ្រើសរើសវិធីសាស្ត្រ</h2>
+          <button 
+            onClick={() => setIsRegistrationModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>ចុះឈ្មោះផ្ទៃមុខ</span>
+          </button>
+        </div>
         
         <button 
           onClick={startGPS}
@@ -179,6 +264,13 @@ export function CheckInPanel() {
           </div>
         )}
 
+        {status === 'loading_models' && (
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-indigo-600 dark:text-indigo-400 animate-spin mx-auto mb-4" />
+            <p className="text-lg font-medium text-slate-700 dark:text-slate-300">{message}</p>
+          </div>
+        )}
+
         {status === 'success' && (
           <div className="text-center">
             <div className="w-20 h-20 bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -209,8 +301,10 @@ export function CheckInPanel() {
           <div className="w-full max-w-sm flex flex-col items-center">
             <div className="relative rounded-2xl overflow-hidden border-4 border-indigo-100 dark:border-indigo-900 w-full aspect-square bg-black">
               <Webcam 
+                ref={webcamRef}
                 audio={false}
                 screenshotFormat="image/jpeg"
+                videoConstraints={{ facingMode: "user" }}
                 className="w-full h-full object-cover"
               />
               {/* Overlay guides */}
