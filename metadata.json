@@ -1,0 +1,11 @@
+{
+  "name": "MIS CPP",
+  "description": "Multi-tenant employee attendance and payroll system",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

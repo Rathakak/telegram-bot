@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@variant dark (&:is(.dark *));
+
+@layer utilities {
+  .gradient-sidebar { 
+    background: linear-gradient(180deg, #312e81 0%, #5b21b6 100%); 
+  } 
+  .dark .gradient-sidebar {
+    background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
+  }
+  .glass-card { 
+    background: rgba(255, 255, 255, 0.9); 
+    backdrop-filter: blur(10px); 
+    border: 1px solid rgba(226, 232, 240, 0.8); 
+  }
+  .dark .glass-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(51, 65, 85, 0.8);
+  }
+}
+
